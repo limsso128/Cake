@@ -10,25 +10,34 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 
+// 💡 Thread/Concurrency 관련 import
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import javax.swing.SwingUtilities;
+import java.util.concurrent.TimeUnit; // ExecutorService 종료 시 사용
+
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import javax.swing.JFileChooser;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.BadLocationException;
 
-// JDBC 관련 import
+// JDBC 관련 import (데이터베이스, I/O, Network 관련 처리의 일종)
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class CakeDesignPanel extends JPanel {
+public class CakeDesignPanel extends JPanel { // 💡 GUI (JPanel 상속)
 
     // --- [1. 변수 선언] ---
     private static final int CREAM_WIDTH = 60;
     private static final int CREAM_HEIGHT = 60;
-    private static final int FRUIT_WIDTH = 50;
-    private static final int FRUIT_HEIGHT = 50;
+    private static final int FRUIT_WIDTH = 60;
+    private static final int FRUIT_HEIGHT = 60;
+
+    // 💡 Thread (ExecutorService 선언)
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     // 이미지 변수들
     private Image startImage;
@@ -72,7 +81,7 @@ public class CakeDesignPanel extends JPanel {
     private final Color SELECTION_COLOR = new Color(255, 200, 200);
     private final Font BOLD_FONT = new Font("Malgun Gothic", Font.BOLD, 16);
     private final Font FIELD_FONT = new Font("Malgun Gothic", Font.PLAIN, 18);
-    private final Font BODY_FONT = new Font("Malgun Gothic", Font.PLAIN, 17); // BODY_FONT 추가
+    private final Font BODY_FONT = new Font("Malgun Gothic", Font.PLAIN, 17);
 
     static class Placement {
         int x, y;
@@ -131,6 +140,21 @@ public class CakeDesignPanel extends JPanel {
                 handleMouseClick(e.getX(), e.getY());
             }
         });
+
+        // 💡 Thread: 프로그램 종료 시 ExecutorService도 안전하게 종료
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            executorService.shutdown();
+            try {
+                // 60초 동안 대기하여 스레드가 종료되도록 시도
+                if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                    executorService.shutdownNow(); // 강제 종료
+                }
+            } catch (InterruptedException e) {
+                executorService.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+            System.out.println("ExecutorService terminated.");
+        }));
     }
 
     // --- [3. 마우스 클릭 로직] ---
@@ -228,7 +252,7 @@ public class CakeDesignPanel extends JPanel {
             }
         } else if (currentState.equals("fruit_selection")) {
             if (isClickInArea(x, y, 601, 751, 441, 541)) {
-                currentState = "cake_save"; // cake_save 상태로 이동하도록 수정
+                currentState = "cake_save";
                 selectedTool = "none";
                 repaint();
             }
@@ -253,7 +277,7 @@ public class CakeDesignPanel extends JPanel {
         }
         // 케이크 저장 화면 (cake_save.png)
         else if (currentState.equals("cake_save")) {
-            // [케이크 저장 버튼] 클릭 영역: (337, 360) ~ (437, 400) (중앙: 387, 380)
+            // [케이크 저장 버튼] 클릭 영역: (337, 360) ~ (437, 400)
             if (isClickInArea(x, y, 337, 437, 360, 400)) {
                 saveCakeImage(); // 케이크 이미지 저장 메서드 호출
                 return;
@@ -292,7 +316,7 @@ public class CakeDesignPanel extends JPanel {
         }
         // 편지 저장 화면 (letter_save.jpg)
         else if (currentState.equals("letter_save")) {
-            // [편지 저장 버튼] 클릭 영역: (337, 437, 360, 400) (요청 좌표 387, 380 포함)
+            // [편지 저장 버튼] 클릭 영역: (337, 437, 360, 400)
             if (isClickInArea(x, y, 337, 437, 360, 400)) {
                 saveLetterImage(); // 편지 이미지 저장 메서드 호출
                 return;
@@ -313,7 +337,7 @@ public class CakeDesignPanel extends JPanel {
         }
     }
 
-    // 케이크 저장 기능
+    // 💡 이미지 저장 기능 (I/O, File)
     private void saveCakeImage() {
         int width = getWidth();
         int height = getHeight();
@@ -376,7 +400,7 @@ public class CakeDesignPanel extends JPanel {
                 JOptionPane.showMessageDialog(this,
                         "케이크가 성공적으로 저장되었습니다:\n" + fileToSave.getAbsolutePath(),
                         "저장 완료", JOptionPane.INFORMATION_MESSAGE);
-            } catch (IOException ex) {
+            } catch (IOException ex) { // 💡 예외처리 (IOException)
                 JOptionPane.showMessageDialog(this,
                         "이미지 저장 중 오류가 발생했습니다: " + ex.getMessage(),
                         "저장 오류", JOptionPane.ERROR_MESSAGE);
@@ -389,7 +413,7 @@ public class CakeDesignPanel extends JPanel {
 
 
     /**
-     * 현재 작성된 편지 (편지지 + 텍스트만)를 이미지 파일로 저장합니다. ⚠️ 배경 제거 ⚠️
+     * 현재 작성된 편지 (편지지 + 텍스트만)를 이미지 파일로 저장합니다.
      */
     private void saveLetterImage() {
         if (selectedLetterNumber == 0) {
@@ -397,7 +421,7 @@ public class CakeDesignPanel extends JPanel {
             return;
         }
 
-        // ⚠️ 이미지 크기를 편지지 크기(405x304)로 설정 ⚠️
+        // 이미지 크기를 편지지 크기(405x304)로 설정
         int targetWidth = 405;
         int targetHeight = 304;
 
@@ -408,7 +432,7 @@ public class CakeDesignPanel extends JPanel {
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // 1. 흰색 배경으로 채우기 (주변 배경 이미지 제거)
+        // 1. 흰색 배경으로 채우기 (요청대로 주변 배경 이미지 제거)
         g2.setColor(Color.WHITE);
         g2.fillRect(0, 0, targetWidth, targetHeight);
 
@@ -416,7 +440,6 @@ public class CakeDesignPanel extends JPanel {
         Image selectedLetterImage = letterImages[selectedLetterNumber - 1];
         if (selectedLetterImage != null) {
 
-            // lx, ly를 0으로 설정하여 버퍼의 시작점부터 그리도록 함
             int lx = 0;
             int ly = 0;
 
@@ -451,7 +474,7 @@ public class CakeDesignPanel extends JPanel {
 
             // --- Body Pane (JTextPane) 내용 그리기 ---
             String bodyText;
-            try {
+            try { // 💡 예외처리 (BadLocationException)
                 bodyText = bodyPane.getDocument().getText(0, bodyPane.getDocument().getLength());
             } catch (BadLocationException e) {
                 bodyText = "";
@@ -528,7 +551,7 @@ public class CakeDesignPanel extends JPanel {
                 JOptionPane.showMessageDialog(this,
                         "편지가 성공적으로 저장되었습니다:\n" + fileToSave.getAbsolutePath(),
                         "저장 완료", JOptionPane.INFORMATION_MESSAGE);
-            } catch (IOException ex) {
+            } catch (IOException ex) { // 💡 예외처리 (IOException)
                 JOptionPane.showMessageDialog(this,
                         "이미지 저장 중 오류가 발생했습니다: " + ex.getMessage(),
                         "저장 오류", JOptionPane.ERROR_MESSAGE);
@@ -540,79 +563,107 @@ public class CakeDesignPanel extends JPanel {
     }
 
 
-    // --- [4. 인증 로직] --- (수정 없음)
+    // --- [4. 인증 로직] ---
 
-    /** 회원가입 로직 */
+    /** * 회원가입 로직 💡 Thread를 이용한 비동기 처리 및 예외처리 강화
+     */
     private void performSignup(String username, String password) {
         if (username.isEmpty() || password.isEmpty()) {
             JOptionPane.showMessageDialog(this, "아이디와 비밀번호를 모두 입력해주세요.", "경고", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        String sql = "INSERT INTO users (username, password) VALUES (?, ?)";
+        // 💡 Thread: 데이터베이스 작업을 백그라운드 스레드로 실행 (GUI 멈춤 방지)
+        executorService.submit(() -> { // 💡 Thread
+            String sql = "INSERT INTO users (username, password) VALUES (?, ?)";
 
-        try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            try (Connection conn = DatabaseUtil.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            String hashedPassword = password;
+                String hashedPassword = password;
 
-            pstmt.setString(1, username);
-            pstmt.setString(2, hashedPassword);
+                pstmt.setString(1, username);
+                pstmt.setString(2, hashedPassword);
 
-            pstmt.executeUpdate();
-            JOptionPane.showMessageDialog(this, "회원가입 성공! 이제 로그인해주세요.", "알림", JOptionPane.INFORMATION_MESSAGE);
+                pstmt.executeUpdate();
 
-            currentState = "login";
-            toggleAuthFields(false, "signup");
-            toggleAuthFields(true, "login");
-            repaint();
+                // 💡 GUI: 작업 완료 후 GUI 업데이트는 EDT에서 안전하게 실행
+                SwingUtilities.invokeLater(() -> { // 💡 Thread/GUI
+                    JOptionPane.showMessageDialog(this, "회원가입 성공! 이제 로그인해주세요.", "알림", JOptionPane.INFORMATION_MESSAGE);
+                    currentState = "login";
+                    toggleAuthFields(false, "signup");
+                    toggleAuthFields(true, "login");
+                    repaint();
+                });
 
-        } catch (SQLException e) {
-            if (e.getMessage().contains("UNIQUE constraint failed")) {
-                JOptionPane.showMessageDialog(this, "이미 존재하는 아이디입니다.", "오류", JOptionPane.ERROR_MESSAGE);
-            } else {
-                e.printStackTrace();
-                JOptionPane.showMessageDialog(this, "DB 오류: " + e.getMessage(), "오류", JOptionPane.ERROR_MESSAGE);
+            } catch (SQLException e) { // 💡 예외처리: DB 관련 예외 처리
+                // GUI 업데이트는 EDT에서 실행
+                SwingUtilities.invokeLater(() -> {
+                    if (e.getMessage().contains("UNIQUE constraint failed")) {
+                        JOptionPane.showMessageDialog(this, "이미 존재하는 아이디입니다.", "오류", JOptionPane.ERROR_MESSAGE);
+                    } else {
+                        e.printStackTrace();
+                        JOptionPane.showMessageDialog(this, "DB 오류: " + e.getMessage(), "오류", JOptionPane.ERROR_MESSAGE);
+                    }
+                });
             }
-        }
+        });
     }
 
-    /** 로그인 로직 */
+    /** * 로그인 로직 💡 Thread를 이용한 비동기 처리 및 예외처리 강화
+     */
     private void performLogin(String username, String password) {
         if (username.isEmpty() || password.isEmpty()) {
             JOptionPane.showMessageDialog(this, "아이디와 비밀번호를 모두 입력해주세요.", "경고", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        String sql = "SELECT password FROM users WHERE username = ?";
+        // 💡 Thread: 데이터베이스 작업을 백그라운드 스레드로 실행
+        executorService.submit(() -> { // 💡 Thread
+            String sql = "SELECT password FROM users WHERE username = ?";
 
-        try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            try (Connection conn = DatabaseUtil.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, username);
-            ResultSet rs = pstmt.executeQuery();
+                pstmt.setString(1, username);
+                ResultSet rs = pstmt.executeQuery();
 
-            if (rs.next()) {
-                String storedPassword = rs.getString("password");
+                final String message;
+                final boolean success;
 
-                if (storedPassword.equals(password)) {
-                    JOptionPane.showMessageDialog(this, username + "님, 로그인 성공!", "환영", JOptionPane.INFORMATION_MESSAGE);
-
-                    currentState = "bread_selection";
-                    selectedBreadType = "none";
-                    toggleAuthFields(false, "login");
-                    repaint();
+                if (rs.next()) {
+                    String storedPassword = rs.getString("password");
+                    if (storedPassword.equals(password)) {
+                        message = username + "님, 로그인 성공!";
+                        success = true;
+                    } else {
+                        message = "비밀번호가 일치하지 않습니다.";
+                        success = false;
+                    }
                 } else {
-                    JOptionPane.showMessageDialog(this, "비밀번호가 일치하지 않습니다.", "오류", JOptionPane.ERROR_MESSAGE);
+                    message = "존재하지 않는 아이디입니다.";
+                    success = false;
                 }
-            } else {
-                JOptionPane.showMessageDialog(this, "존재하지 않는 아이디입니다.", "오류", JOptionPane.ERROR_MESSAGE);
-            }
 
-        } catch (SQLException e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "DB 오류: " + e.getMessage(), "오류", JOptionPane.ERROR_MESSAGE);
-        }
+                // 💡 GUI: GUI 업데이트는 EDT에서 안전하게 실행
+                SwingUtilities.invokeLater(() -> { // 💡 Thread/GUI
+                    JOptionPane.showMessageDialog(this, message, success ? "환영" : "오류", success ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.ERROR_MESSAGE);
+                    if (success) {
+                        currentState = "bread_selection";
+                        selectedBreadType = "none";
+                        toggleAuthFields(false, "login");
+                        repaint();
+                    }
+                });
+
+            } catch (SQLException e) { // 💡 예외처리: DB 관련 예외 처리
+                e.printStackTrace();
+                // GUI 업데이트는 EDT에서 실행
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(this, "DB 오류: " + e.getMessage(), "오류", JOptionPane.ERROR_MESSAGE);
+                });
+            }
+        });
     }
 
 
@@ -694,7 +745,7 @@ public class CakeDesignPanel extends JPanel {
             fruitStrawImg = loadImage("img/fruit_strawberry.png", FRUIT_WIDTH, FRUIT_HEIGHT);
             fruitOrangeImg = loadImage("img/fruit_orange.png", FRUIT_WIDTH, FRUIT_HEIGHT);
 
-        } catch (Exception e) {
+        } catch (Exception e) { // 💡 예외처리 (Exception)
             System.err.println("이미지 로드 중 오류 발생: " + e.getMessage());
             e.printStackTrace();
         }
@@ -745,7 +796,7 @@ public class CakeDesignPanel extends JPanel {
 
     // --- [6. 화면 그리기] ---
     @Override
-    protected void paintComponent(Graphics g) {
+    protected void paintComponent(Graphics g) { // 💡 GUI
         super.paintComponent(g);
 
         toggleInputFields(false);
