@@ -10,9 +10,11 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import java.awt.Graphics2D; // ⚠️ 추가
-import java.awt.RenderingHints; // ⚠️ 추가
-import javax.swing.JFileChooser; // ⚠️ 추가
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import javax.swing.JFileChooser;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.text.BadLocationException;
 
 // JDBC 관련 import
 import java.sql.Connection;
@@ -40,8 +42,8 @@ public class CakeDesignPanel extends JPanel {
 
     private Image letterSelectionImage;
     private Image letterWriteImage;
-    private Image cakeSaveImage;   // 케이크 저장 이미지 변수
-    private Image letterSaveImage; // 편지 저장 이미지 변수
+    private Image cakeSaveImage;
+    private Image letterSaveImage;
     private Image[] letterImages = new Image[9];
 
     private Image creamChocoImg, creamStrawImg, creamWhiteImg;
@@ -70,6 +72,7 @@ public class CakeDesignPanel extends JPanel {
     private final Color SELECTION_COLOR = new Color(255, 200, 200);
     private final Font BOLD_FONT = new Font("Malgun Gothic", Font.BOLD, 16);
     private final Font FIELD_FONT = new Font("Malgun Gothic", Font.PLAIN, 18);
+    private final Font BODY_FONT = new Font("Malgun Gothic", Font.PLAIN, 17); // BODY_FONT 추가
 
     static class Placement {
         int x, y;
@@ -123,6 +126,8 @@ public class CakeDesignPanel extends JPanel {
         this.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
+                // ⚠️ 콘솔 좌표 출력 ⚠️
+                System.out.println("Clicked coordinates: " + e.getX() + ", " + e.getY());
                 handleMouseClick(e.getX(), e.getY());
             }
         });
@@ -130,9 +135,6 @@ public class CakeDesignPanel extends JPanel {
 
     // --- [3. 마우스 클릭 로직] ---
     private void handleMouseClick(int x, int y) {
-        // ⚠️ 콘솔 좌표 출력 (이전 요청 반영) ⚠️
-        System.out.println("Clicked coordinates: " + x + ", " + y);
-
         if (currentState.equals("start")) {
             currentState = "login";
             toggleInputFields(false);
@@ -226,7 +228,7 @@ public class CakeDesignPanel extends JPanel {
             }
         } else if (currentState.equals("fruit_selection")) {
             if (isClickInArea(x, y, 601, 751, 441, 541)) {
-                currentState = "cake_save";
+                currentState = "cake_save"; // cake_save 상태로 이동하도록 수정
                 selectedTool = "none";
                 repaint();
             }
@@ -249,11 +251,11 @@ public class CakeDesignPanel extends JPanel {
                 }
             }
         }
-        // ⚠️ 케이크 저장 화면 (cake_save.png) ⚠️
+        // 케이크 저장 화면 (cake_save.png)
         else if (currentState.equals("cake_save")) {
             // [케이크 저장 버튼] 클릭 영역: (337, 360) ~ (437, 400) (중앙: 387, 380)
             if (isClickInArea(x, y, 337, 437, 360, 400)) {
-                saveCakeImage(); // ⚠️ 이미지 저장 메서드 호출 ⚠️
+                saveCakeImage(); // 케이크 이미지 저장 메서드 호출
                 return;
             }
             // [다음] 버튼 클릭 시 letter_selection으로 이동
@@ -287,15 +289,21 @@ public class CakeDesignPanel extends JPanel {
                 toggleInputFields(false);
                 repaint();
             }
-        } else if (currentState.equals("letter_save")) {
-            if (isClickInArea(x, y, 321, 471, 350, 420)) {
-                // saveCakeImage();
+        }
+        // 편지 저장 화면 (letter_save.jpg)
+        else if (currentState.equals("letter_save")) {
+            // [편지 저장 버튼] 클릭 영역: (337, 437, 360, 400) (요청 좌표 387, 380 포함)
+            if (isClickInArea(x, y, 337, 437, 360, 400)) {
+                saveLetterImage(); // 편지 이미지 저장 메서드 호출
+                return;
             }
+            // [편지 작성으로 돌아가기]
             else if (isClickInArea(x, y, 40, 180, 460, 520)) {
                 currentState = "letter_write";
                 toggleInputFields(true);
                 repaint();
             }
+            // [처음으로]
             else if (isClickInArea(x, y, 601, 751, 441, 541)) {
                 currentState = "start";
                 selectedBreadType = "none";
@@ -305,30 +313,21 @@ public class CakeDesignPanel extends JPanel {
         }
     }
 
-    // ⚠️ 케이크 저장 기능 구현 ⚠️
-    /**
-     * 현재 디자인된 케이크 (빵 + 데코레이션)을 이미지 파일로 저장합니다.
-     * JFileChooser를 사용하여 사용자에게 저장 경로를 묻습니다.
-     */
+    // 케이크 저장 기능
     private void saveCakeImage() {
-        // 1. 저장할 이미지의 크기를 결정합니다. (프레임과 동일한 800x600 크기로 캡처)
         int width = getWidth();
         int height = getHeight();
 
-        // 2. 새 BufferedImage를 생성하고 Graphics2D를 가져옵니다.
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2 = image.createGraphics();
 
-        // 3. 배경색을 흰색으로 채웁니다.
         g2.setColor(Color.WHITE);
         g2.fillRect(0, 0, width, height);
 
-        // 4. 렌더링 품질 설정
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // 5. 케이크 디자인 (빵과 데코레이션)을 BufferedImage에 그립니다.
         Image breadBase = null;
         if ("basic".equals(selectedBreadType)) breadBase = breadBasicImage;
         else if ("choco".equals(selectedBreadType)) breadBase = breadChocoImage;
@@ -345,13 +344,11 @@ public class CakeDesignPanel extends JPanel {
                 int finalW = (int) (imgW * scale);
                 int finalH = (int) (imgH * scale);
 
-                // 케이크는 패널 중앙에서 90만큼 아래에 위치 (y + 90)
                 int x = (width - finalW) / 2;
                 int y = (height - finalH) / 2 + 90;
 
                 g2.drawImage(breadBase, x, y, finalW, finalH, null);
 
-                // 데코레이션 그리기
                 for (Placement p : decorations) {
                     g2.drawImage(p.image, p.x, p.y, null);
                 }
@@ -360,20 +357,16 @@ public class CakeDesignPanel extends JPanel {
 
         g2.dispose();
 
-        // 6. JFileChooser를 사용하여 저장 경로를 사용자에게 묻습니다.
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("케이크 이미지를 저장할 위치를 선택하세요.");
-
-        // 기본 파일명 설정
-        String defaultFileName = "MyCake_" + System.currentTimeMillis() + ".png";
-        fileChooser.setSelectedFile(new File(defaultFileName));
+        fileChooser.setSelectedFile(new File("MyCake_" + System.currentTimeMillis() + ".png"));
+        fileChooser.setFileFilter(new FileNameExtensionFilter("PNG Images", "png"));
 
         int userSelection = fileChooser.showSaveDialog(this);
 
         if (userSelection == JFileChooser.APPROVE_OPTION) {
             File fileToSave = fileChooser.getSelectedFile();
             try {
-                // 확장자가 없으면 .png를 붙여줍니다.
                 String filePath = fileToSave.getAbsolutePath();
                 if (!filePath.toLowerCase().endsWith(".png")) {
                     fileToSave = new File(filePath + ".png");
@@ -382,6 +375,158 @@ public class CakeDesignPanel extends JPanel {
                 ImageIO.write(image, "png", fileToSave);
                 JOptionPane.showMessageDialog(this,
                         "케이크가 성공적으로 저장되었습니다:\n" + fileToSave.getAbsolutePath(),
+                        "저장 완료", JOptionPane.INFORMATION_MESSAGE);
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this,
+                        "이미지 저장 중 오류가 발생했습니다: " + ex.getMessage(),
+                        "저장 오류", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "이미지 저장이 취소되었습니다.", "알림", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+
+    /**
+     * 현재 작성된 편지 (편지지 + 텍스트만)를 이미지 파일로 저장합니다. ⚠️ 배경 제거 ⚠️
+     */
+    private void saveLetterImage() {
+        if (selectedLetterNumber == 0) {
+            JOptionPane.showMessageDialog(this, "먼저 편지지를 선택하고 내용을 작성해야 저장할 수 있습니다.", "경고", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // ⚠️ 이미지 크기를 편지지 크기(405x304)로 설정 ⚠️
+        int targetWidth = 405;
+        int targetHeight = 304;
+
+        BufferedImage image = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2 = image.createGraphics();
+
+        // 렌더링 품질 설정
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // 1. 흰색 배경으로 채우기 (주변 배경 이미지 제거)
+        g2.setColor(Color.WHITE);
+        g2.fillRect(0, 0, targetWidth, targetHeight);
+
+        // 2. 편지지 이미지 그리기 (새 이미지의 (0, 0)에 맞춤)
+        Image selectedLetterImage = letterImages[selectedLetterNumber - 1];
+        if (selectedLetterImage != null) {
+
+            // lx, ly를 0으로 설정하여 버퍼의 시작점부터 그리도록 함
+            int lx = 0;
+            int ly = 0;
+
+            g2.drawImage(selectedLetterImage, lx, ly, targetWidth, targetHeight, null);
+
+            // 3. 텍스트 필드 내용 그리기 (좌표는 lx, ly=0을 기준으로 계산)
+            g2.setColor(TEXT_COLOR);
+            FontMetrics fm;
+
+            // --- Date Field (우측 정렬) ---
+            g2.setFont(BOLD_FONT);
+            fm = g2.getFontMetrics();
+            String dateText = dateField.getText();
+            int dateFieldLeft = targetWidth - 160;
+            int dateFieldWidth = 140;
+            int dateY = ly + 18 + fm.getAscent();
+            // 우측 정렬된 X 좌표 계산
+            g2.drawString(dateText, dateFieldLeft + dateFieldWidth - fm.stringWidth(dateText), dateY);
+
+            // --- From Field (우측 정렬) ---
+            String fromText = fromField.getText();
+            int fromFieldLeft = targetWidth - 160;
+            int fromFieldWidth = 140;
+            int fromY = ly + targetHeight - 40 + fm.getAscent();
+            g2.drawString(fromText, fromFieldLeft + fromFieldWidth - fm.stringWidth(fromText), fromY);
+
+            // --- To Field (좌측 정렬) ---
+            String toText = toField.getText();
+            int toX = lx + 25;
+            int toY = ly + 45 + fm.getAscent();
+            g2.drawString(toText, toX, toY);
+
+            // --- Body Pane (JTextPane) 내용 그리기 ---
+            String bodyText;
+            try {
+                bodyText = bodyPane.getDocument().getText(0, bodyPane.getDocument().getLength());
+            } catch (BadLocationException e) {
+                bodyText = "";
+            }
+
+            // Body Pane 영역 정의 (편지지 내 텍스트 영역)
+            int bodyX = lx + 25;
+            int bodyYStart = ly + 85;
+            int bodyWidth = targetWidth - 50;
+            int bodyHeight = targetHeight - 130;
+
+            // 폰트 설정 (BODY_FONT 사용)
+            g2.setFont(BODY_FONT);
+            fm = g2.getFontMetrics();
+            int lineHeight = fm.getHeight();
+            int currentY = bodyYStart + fm.getAscent();
+
+            // 텍스트를 줄바꿈하여 그리기
+            String[] paragraphs = bodyText.split("\n");
+            for (String paragraph : paragraphs) {
+                String currentLine = "";
+                // 단어(또는 띄어쓰기) 단위로 래핑
+                for (String word : paragraph.split(" ")) {
+                    String testLine = currentLine.isEmpty() ? word : currentLine + " " + word;
+
+                    if (fm.stringWidth(testLine) < bodyWidth) {
+                        currentLine = testLine;
+                    } else {
+                        // 현재 줄 출력
+                        if (currentY < bodyYStart + bodyHeight) {
+                            g2.drawString(currentLine, bodyX, currentY);
+                            currentY += lineHeight;
+                        } else {
+                            break; // 영역 초과
+                        }
+                        // 다음 줄 시작
+                        currentLine = word;
+                    }
+                }
+                // 단락의 마지막 줄 처리 (또는 영역 초과 전까지)
+                if (!currentLine.trim().isEmpty() && currentY < bodyYStart + bodyHeight) {
+                    g2.drawString(currentLine, bodyX, currentY);
+                    currentY += lineHeight;
+                }
+
+                // 단락 간 간격 (새 줄)
+                if (currentY < bodyYStart + bodyHeight) {
+                    currentY += lineHeight / 3; // 약간의 단락 간격
+                }
+                if(currentY >= bodyYStart + bodyHeight) break;
+            }
+        }
+
+        g2.dispose();
+
+        // 4. JFileChooser를 사용하여 저장 경로를 사용자에게 묻습니다.
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("편지 이미지를 저장할 위치를 선택하세요.");
+        fileChooser.setSelectedFile(new File("MyLetter_" + System.currentTimeMillis() + ".png"));
+
+        fileChooser.setFileFilter(new FileNameExtensionFilter("PNG Images", "png"));
+
+        int userSelection = fileChooser.showSaveDialog(this);
+
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File fileToSave = fileChooser.getSelectedFile();
+            try {
+                String filePath = fileToSave.getAbsolutePath();
+                if (!filePath.toLowerCase().endsWith(".png")) {
+                    fileToSave = new File(filePath + ".png");
+                }
+
+                ImageIO.write(image, "png", fileToSave);
+                JOptionPane.showMessageDialog(this,
+                        "편지가 성공적으로 저장되었습니다:\n" + fileToSave.getAbsolutePath(),
                         "저장 완료", JOptionPane.INFORMATION_MESSAGE);
             } catch (IOException ex) {
                 JOptionPane.showMessageDialog(this,
@@ -535,7 +680,6 @@ public class CakeDesignPanel extends JPanel {
 
             letterSelectionImage = loadImage("img/letter_selection.png");
             letterWriteImage = loadImage("img/letter_write.png");
-
             cakeSaveImage = loadImage("img/cake_save.png");
             letterSaveImage = loadImage("img/letter_save.jpg");
 
