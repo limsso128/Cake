@@ -10,6 +10,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 
+import java.awt.Graphics2D; // ⚠️ 추가
+import java.awt.RenderingHints; // ⚠️ 추가
+import javax.swing.JFileChooser; // ⚠️ 추가
+
 // JDBC 관련 import
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -36,8 +40,8 @@ public class CakeDesignPanel extends JPanel {
 
     private Image letterSelectionImage;
     private Image letterWriteImage;
-    private Image cakeSaveImage;   // ⚠️ 케이크 저장 이미지 변수 추가
-    private Image letterSaveImage; // ⚠️ 편지 저장 이미지 변수 유지
+    private Image cakeSaveImage;   // 케이크 저장 이미지 변수
+    private Image letterSaveImage; // 편지 저장 이미지 변수
     private Image[] letterImages = new Image[9];
 
     private Image creamChocoImg, creamStrawImg, creamWhiteImg;
@@ -126,6 +130,9 @@ public class CakeDesignPanel extends JPanel {
 
     // --- [3. 마우스 클릭 로직] ---
     private void handleMouseClick(int x, int y) {
+        // ⚠️ 콘솔 좌표 출력 (이전 요청 반영) ⚠️
+        System.out.println("Clicked coordinates: " + x + ", " + y);
+
         if (currentState.equals("start")) {
             currentState = "login";
             toggleInputFields(false);
@@ -218,7 +225,6 @@ public class CakeDesignPanel extends JPanel {
                 }
             }
         } else if (currentState.equals("fruit_selection")) {
-            // ⚠️ 수정 2-1: 다음 상태를 'cake_save'로 변경 (케이크 저장 화면) ⚠️
             if (isClickInArea(x, y, 601, 751, 441, 541)) {
                 currentState = "cake_save";
                 selectedTool = "none";
@@ -242,8 +248,15 @@ public class CakeDesignPanel extends JPanel {
                     }
                 }
             }
-        } else if (currentState.equals("cake_save")) {
-            // ⚠️ 수정 2-2: 케이크 저장 화면에서 다음 버튼 클릭 시 'letter_selection'으로 이동 ⚠️
+        }
+        // ⚠️ 케이크 저장 화면 (cake_save.png) ⚠️
+        else if (currentState.equals("cake_save")) {
+            // [케이크 저장 버튼] 클릭 영역: (337, 360) ~ (437, 400) (중앙: 387, 380)
+            if (isClickInArea(x, y, 337, 437, 360, 400)) {
+                saveCakeImage(); // ⚠️ 이미지 저장 메서드 호출 ⚠️
+                return;
+            }
+            // [다음] 버튼 클릭 시 letter_selection으로 이동
             if (isClickInArea(x, y, 601, 751, 441, 541)) {
                 currentState = "letter_selection";
                 repaint();
@@ -269,7 +282,6 @@ public class CakeDesignPanel extends JPanel {
                 repaint();
             }
         } else if (currentState.equals("letter_write")) {
-            // ⚠️ 수정 2-3: 편지 작성 후 다음 버튼 클릭 시 'letter_save'로 이동 (편지 저장 화면) ⚠️
             if (isClickInArea(x, y, 601, 751, 441, 541)) {
                 currentState = "letter_save";
                 toggleInputFields(false);
@@ -280,11 +292,10 @@ public class CakeDesignPanel extends JPanel {
                 // saveCakeImage();
             }
             else if (isClickInArea(x, y, 40, 180, 460, 520)) {
-                currentState = "letter_write"; // 편지 작성으로 돌아가기
+                currentState = "letter_write";
                 toggleInputFields(true);
                 repaint();
             }
-            // ⚠️ 수정 2-4: 편지 저장 후 다음 버튼 클릭 시 시작 화면으로 돌아가며 초기화 ⚠️
             else if (isClickInArea(x, y, 601, 751, 441, 541)) {
                 currentState = "start";
                 selectedBreadType = "none";
@@ -294,7 +305,97 @@ public class CakeDesignPanel extends JPanel {
         }
     }
 
-    // --- [4. 인증 로직] ---
+    // ⚠️ 케이크 저장 기능 구현 ⚠️
+    /**
+     * 현재 디자인된 케이크 (빵 + 데코레이션)을 이미지 파일로 저장합니다.
+     * JFileChooser를 사용하여 사용자에게 저장 경로를 묻습니다.
+     */
+    private void saveCakeImage() {
+        // 1. 저장할 이미지의 크기를 결정합니다. (프레임과 동일한 800x600 크기로 캡처)
+        int width = getWidth();
+        int height = getHeight();
+
+        // 2. 새 BufferedImage를 생성하고 Graphics2D를 가져옵니다.
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2 = image.createGraphics();
+
+        // 3. 배경색을 흰색으로 채웁니다.
+        g2.setColor(Color.WHITE);
+        g2.fillRect(0, 0, width, height);
+
+        // 4. 렌더링 품질 설정
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // 5. 케이크 디자인 (빵과 데코레이션)을 BufferedImage에 그립니다.
+        Image breadBase = null;
+        if ("basic".equals(selectedBreadType)) breadBase = breadBasicImage;
+        else if ("choco".equals(selectedBreadType)) breadBase = breadChocoImage;
+        else if ("strawberry".equals(selectedBreadType)) breadBase = breadStrawberryImage;
+
+        if (breadBase != null) {
+            int imgW = breadBase.getWidth(this);
+            int imgH = breadBase.getHeight(this);
+            if (imgW > 0 && imgH > 0) {
+                int maxW = 520; int maxH = 370;
+                double widthRatio = (double) maxW / imgW;
+                double heightRatio = (double) maxH / imgH;
+                double scale = Math.min(widthRatio, heightRatio);
+                int finalW = (int) (imgW * scale);
+                int finalH = (int) (imgH * scale);
+
+                // 케이크는 패널 중앙에서 90만큼 아래에 위치 (y + 90)
+                int x = (width - finalW) / 2;
+                int y = (height - finalH) / 2 + 90;
+
+                g2.drawImage(breadBase, x, y, finalW, finalH, null);
+
+                // 데코레이션 그리기
+                for (Placement p : decorations) {
+                    g2.drawImage(p.image, p.x, p.y, null);
+                }
+            }
+        }
+
+        g2.dispose();
+
+        // 6. JFileChooser를 사용하여 저장 경로를 사용자에게 묻습니다.
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("케이크 이미지를 저장할 위치를 선택하세요.");
+
+        // 기본 파일명 설정
+        String defaultFileName = "MyCake_" + System.currentTimeMillis() + ".png";
+        fileChooser.setSelectedFile(new File(defaultFileName));
+
+        int userSelection = fileChooser.showSaveDialog(this);
+
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File fileToSave = fileChooser.getSelectedFile();
+            try {
+                // 확장자가 없으면 .png를 붙여줍니다.
+                String filePath = fileToSave.getAbsolutePath();
+                if (!filePath.toLowerCase().endsWith(".png")) {
+                    fileToSave = new File(filePath + ".png");
+                }
+
+                ImageIO.write(image, "png", fileToSave);
+                JOptionPane.showMessageDialog(this,
+                        "케이크가 성공적으로 저장되었습니다:\n" + fileToSave.getAbsolutePath(),
+                        "저장 완료", JOptionPane.INFORMATION_MESSAGE);
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this,
+                        "이미지 저장 중 오류가 발생했습니다: " + ex.getMessage(),
+                        "저장 오류", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "이미지 저장이 취소되었습니다.", "알림", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+
+    // --- [4. 인증 로직] --- (수정 없음)
 
     /** 회원가입 로직 */
     private void performSignup(String username, String password) {
@@ -418,6 +519,7 @@ public class CakeDesignPanel extends JPanel {
                 (y >= cakeY && y <= cakeY + cakeHeight);
     }
 
+    // 파일명을 img/ 경로에 맞춰 수정했습니다.
     private void loadImages() {
         try {
             startImage = loadImage("img/background_start.jpg");
@@ -434,9 +536,7 @@ public class CakeDesignPanel extends JPanel {
             letterSelectionImage = loadImage("img/letter_selection.png");
             letterWriteImage = loadImage("img/letter_write.png");
 
-            // ⚠️ 수정 1-1: cake_save.png 로드
             cakeSaveImage = loadImage("img/cake_save.png");
-            // ⚠️ 수정 1-2: letter_save.jpg 로드
             letterSaveImage = loadImage("img/letter_save.jpg");
 
             for (int i = 0; i < 9; i++) letterImages[i] = loadImage("img/letter" + (i + 1) + ".png");
@@ -559,8 +659,8 @@ public class CakeDesignPanel extends JPanel {
         if (currentState.equals("start")) bg = startImage;
         else if (currentState.equals("letter_selection")) bg = letterSelectionImage;
         else if (currentState.equals("letter_write")) bg = letterWriteImage;
-        else if (currentState.equals("cake_save")) bg = cakeSaveImage;   // ⚠️ cake_save.png 표시
-        else if (currentState.equals("letter_save")) bg = letterSaveImage; // ⚠️ letter_save.jpg 표시
+        else if (currentState.equals("cake_save")) bg = cakeSaveImage;
+        else if (currentState.equals("letter_save")) bg = letterSaveImage;
 
         if (bg != null) g.drawImage(bg, 0, 0, getWidth(), getHeight(), this);
 
