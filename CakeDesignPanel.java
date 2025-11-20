@@ -16,7 +16,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class CakeDesignPanel extends JPanel { // 클래스 이름을 CakeDesignPanel로 사용
+public class CakeDesignPanel extends JPanel {
 
     // --- [1. 변수 선언] ---
     private static final int CREAM_WIDTH = 60;
@@ -36,7 +36,8 @@ public class CakeDesignPanel extends JPanel { // 클래스 이름을 CakeDesignP
 
     private Image letterSelectionImage;
     private Image letterWriteImage;
-    private Image letterSaveImage;
+    private Image cakeSaveImage;   // ⚠️ 케이크 저장 이미지 변수 추가
+    private Image letterSaveImage; // ⚠️ 편지 저장 이미지 변수 유지
     private Image[] letterImages = new Image[9];
 
     private Image creamChocoImg, creamStrawImg, creamWhiteImg;
@@ -217,8 +218,9 @@ public class CakeDesignPanel extends JPanel { // 클래스 이름을 CakeDesignP
                 }
             }
         } else if (currentState.equals("fruit_selection")) {
+            // ⚠️ 수정 2-1: 다음 상태를 'cake_save'로 변경 (케이크 저장 화면) ⚠️
             if (isClickInArea(x, y, 601, 751, 441, 541)) {
-                currentState = "letter_selection";
+                currentState = "cake_save";
                 selectedTool = "none";
                 repaint();
             }
@@ -240,7 +242,14 @@ public class CakeDesignPanel extends JPanel { // 클래스 이름을 CakeDesignP
                     }
                 }
             }
-        } else if (currentState.equals("letter_selection")) {
+        } else if (currentState.equals("cake_save")) {
+            // ⚠️ 수정 2-2: 케이크 저장 화면에서 다음 버튼 클릭 시 'letter_selection'으로 이동 ⚠️
+            if (isClickInArea(x, y, 601, 751, 441, 541)) {
+                currentState = "letter_selection";
+                repaint();
+            }
+        }
+        else if (currentState.equals("letter_selection")) {
             int clickedLetter = 0;
             if (isClickInArea(x, y, 142, 242, 60, 160)) clickedLetter = 1;
             else if (isClickInArea(x, y, 336, 436, 60, 160)) clickedLetter = 2;
@@ -260,6 +269,7 @@ public class CakeDesignPanel extends JPanel { // 클래스 이름을 CakeDesignP
                 repaint();
             }
         } else if (currentState.equals("letter_write")) {
+            // ⚠️ 수정 2-3: 편지 작성 후 다음 버튼 클릭 시 'letter_save'로 이동 (편지 저장 화면) ⚠️
             if (isClickInArea(x, y, 601, 751, 441, 541)) {
                 currentState = "letter_save";
                 toggleInputFields(false);
@@ -270,10 +280,11 @@ public class CakeDesignPanel extends JPanel { // 클래스 이름을 CakeDesignP
                 // saveCakeImage();
             }
             else if (isClickInArea(x, y, 40, 180, 460, 520)) {
-                currentState = "letter_write";
+                currentState = "letter_write"; // 편지 작성으로 돌아가기
                 toggleInputFields(true);
                 repaint();
             }
+            // ⚠️ 수정 2-4: 편지 저장 후 다음 버튼 클릭 시 시작 화면으로 돌아가며 초기화 ⚠️
             else if (isClickInArea(x, y, 601, 751, 441, 541)) {
                 currentState = "start";
                 selectedBreadType = "none";
@@ -407,7 +418,6 @@ public class CakeDesignPanel extends JPanel { // 클래스 이름을 CakeDesignP
                 (y >= cakeY && y <= cakeY + cakeHeight);
     }
 
-    // 파일명을 img/ 경로에 맞춰 수정했습니다.
     private void loadImages() {
         try {
             startImage = loadImage("img/background_start.jpg");
@@ -423,6 +433,10 @@ public class CakeDesignPanel extends JPanel { // 클래스 이름을 CakeDesignP
 
             letterSelectionImage = loadImage("img/letter_selection.png");
             letterWriteImage = loadImage("img/letter_write.png");
+
+            // ⚠️ 수정 1-1: cake_save.png 로드
+            cakeSaveImage = loadImage("img/cake_save.png");
+            // ⚠️ 수정 1-2: letter_save.jpg 로드
             letterSaveImage = loadImage("img/letter_save.jpg");
 
             for (int i = 0; i < 9; i++) letterImages[i] = loadImage("img/letter" + (i + 1) + ".png");
@@ -545,7 +559,8 @@ public class CakeDesignPanel extends JPanel { // 클래스 이름을 CakeDesignP
         if (currentState.equals("start")) bg = startImage;
         else if (currentState.equals("letter_selection")) bg = letterSelectionImage;
         else if (currentState.equals("letter_write")) bg = letterWriteImage;
-        else if (currentState.equals("letter_save")) bg = letterSaveImage;
+        else if (currentState.equals("cake_save")) bg = cakeSaveImage;   // ⚠️ cake_save.png 표시
+        else if (currentState.equals("letter_save")) bg = letterSaveImage; // ⚠️ letter_save.jpg 표시
 
         if (bg != null) g.drawImage(bg, 0, 0, getWidth(), getHeight(), this);
 
